@@ -1,0 +1,351 @@
+{
+  "info": {
+    "name": "QIWI Payout API Tests (Non-Production)",
+    "description": "Тесты для проверки доступности сервиса, баланса, создания и исполнения платежа (ТОЛЬКО ТЕСТОВАЯ СРЕДА)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Service Availability",
+      "item": [
+        {
+          "name": "Get All Payments - Check Response Format",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 or 401 (auth required)\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 401]);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test(\"Response should be an array\", function () {",
+                  "        pm.expect(pm.response.json()).to.be.an('array');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Each payment should have required fields\", function () {",
+                  "        const response = pm.response.json();",
+                  "        if (response.length > 0) {",
+                  "            response.forEach(payment => {",
+                  "                pm.expect(payment).to.have.property('paymentId');",
+                  "                pm.expect(payment).to.have.property('status');",
+                  "                pm.expect(payment.status).to.have.property('value');",
+                  "                pm.expect(payment).to.have.property('amount');",
+                  "                pm.expect(payment.amount).to.have.property('value');",
+                  "                pm.expect(payment.amount).to.have.property('currency');",
+                  "            });",
+                  "        }",
+                  "    });",
+                  "}",
+                  "",
+                  "if (pm.response.code === 401) {",
+                  "    pm.test(\"Has authentication error message\", function () {",
+                  "        pm.expect(pm.response.json()).to.have.property('errorCode');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/partner/payout/v1/agents/{{agentId}}/points/{{pointId}}/payments?limit=5",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "partner",
+                "payout",
+                "v1",
+                "agents",
+                "{{agentId}}",
+                "points",
+                "{{pointId}}",
+                "payments"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Balance Request",
+      "item": [
+        {
+          "name": "Get Current Balance - Must be > 0",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has balance object\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('balance');",
+                  "    pm.expect(jsonData).to.have.property('available');",
+                  "});",
+                  "",
+                  "pm.test(\"Balance value > 0\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    const balanceValue = parseFloat(jsonData.balance.value);",
+                  "    pm.expect(balanceValue).to.be.above(0);",
+                  "});",
+                  "",
+                  "pm.test(\"Balance currency is RUB\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.balance.currency).to.equal('RUB');",
+                  "});",
+                  "",
+                  "pm.test(\"Available amount >= balance\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    const balance = parseFloat(jsonData.balance.value);",
+                  "    const available = parseFloat(jsonData.available.value);",
+                  "    pm.expect(available).to.be.at.least(balance);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/partner/payout/v1/agents/{{agentId}}/points/{{pointId}}/balance",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "partner",
+                "payout",
+                "v1",
+                "agents",
+                "{{agentId}}",
+                "points",
+                "{{pointId}}",
+                "balance"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Create Payment",
+      "item": [
+        {
+          "name": "Create Payment Request for 1 RUB",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Payment created successfully\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('paymentId');",
+                  "    pm.expect(jsonData.paymentId).to.equal(pm.variables.get('paymentId'));",
+                  "});",
+                  "",
+                  "pm.test(\"Amount is correct (1 RUB)\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.amount.value).to.equal('1.00');",
+                  "    pm.expect(jsonData.amount.currency).to.equal('RUB');",
+                  "});",
+                  "",
+                  "pm.test(\"Status is READY or CREATED\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status.value).to.be.oneOf(['READY', 'CREATED']);",
+                  "});",
+                  "",
+                  "pm.test(\"Has recipient details\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('recipientDetails');",
+                  "    pm.expect(jsonData.recipientDetails).to.have.property('providerCode');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/partner/payout/v1/agents/{{agentId}}/points/{{pointId}}/payments/{{paymentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "partner",
+                "payout",
+                "v1",
+                "agents",
+                "{{agentId}}",
+                "points",
+                "{{pointId}}",
+                "payments",
+                "{{paymentId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"recipientDetails\": {\n    \"providerCode\": \"qiwi-wallet\",\n    \"fields\": {\n      \"account\": \"{{testWalletPhone}}\"\n    }\n  },\n  \"amount\": {\n    \"value\": \"1.00\",\n    \"currency\": \"RUB\"\n  },\n  \"customer\": {\n    \"account\": \"test-customer-001\",\n    \"email\": \"test@example.com\",\n    \"phone\": \"{{testCustomerPhone}}\"\n  },\n  \"source\": {\n    \"paymentType\": \"NO_EXTRA_CHARGE\",\n    \"paymentToolType\": \"BANK_ACCOUNT\",\n    \"paymentTerminalType\": \"INTERNET_BANKING\",\n    \"paymentDate\": \"{{currentDateTime}}\"\n  }\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Execute Payment",
+      "item": [
+        {
+          "name": "Execute Previously Created Payment",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Создаем платеж перед выполнением, если его нет",
+                  "if (!pm.variables.get('paymentId')) {",
+                  "    pm.variables.set('paymentId', 'test-pay-' + Date.now());",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Payment execution initiated\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('paymentId');",
+                  "    pm.expect(jsonData.status).to.have.property('value');",
+                  "});",
+                  "",
+                  "pm.test(\"Status is IN_PROGRESS or COMPLETED\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status.value).to.be.oneOf(['IN_PROGRESS', 'COMPLETED']);",
+                  "});",
+                  "",
+                  "pm.test(\"Has billing details for completed payment\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.status.value === 'COMPLETED') {",
+                  "        pm.expect(jsonData).to.have.property('billingDetails');",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/partner/payout/v1/agents/{{agentId}}/points/{{pointId}}/payments/{{paymentId}}/execute",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "partner",
+                "payout",
+                "v1",
+                "agents",
+                "{{agentId}}",
+                "points",
+                "{{pointId}}",
+                "payments",
+                "{{paymentId}}",
+                "execute"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://api-test.qiwi.com"
+    },
+    {
+      "key": "apiToken",
+      "value": "your_test_token_here",
+      "type": "secret"
+    },
+    {
+      "key": "agentId",
+      "value": "test_agent_001"
+    },
+    {
+      "key": "pointId",
+      "value": "test_point_001"
+    },
+    {
+      "key": "paymentId",
+      "value": ""
+    },
+    {
+      "key": "testWalletPhone",
+      "value": "79123456789"
+    },
+    {
+      "key": "testCustomerPhone",
+      "value": "9123456789"
+    },
+    {
+      "key": "currentDateTime",
+      "value": ""
+    }
+  ]
+}
